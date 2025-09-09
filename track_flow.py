@@ -1,9 +1,6 @@
 # Program that tracks just the movement of a surface - no training data required
 
 import cv2
-from ids_peak import ids_peak
-import ids_peak_ipl.ids_peak_ipl as ids_ipl
-import ids_peak.ids_peak_ipl_extension as ids_ipl_extension
 import numpy as np
 import pandas as pd
 import pickle
@@ -22,98 +19,6 @@ Radius of pipe = ... => circumference (surface area) = ...
 
 '''
 
-
-
-
-def ids_init(exposure=2000):
-    '''Initialise IDS camera and start acquisition.'''
-
-    # Initialise IDS peak library
-    ids_peak.Library.Initialize()
-
-    # Open device manager - first available camera
-    device_manager = ids_peak.DeviceManager.Instance()
-    device_manager.Update()
-    device_descriptors = device_manager.Devices()
-
-    print("Found Devices: " + str(len(device_descriptors)))
-    for device_descriptor in device_descriptors:
-        print(device_descriptor.DisplayName())
-
-    if not device_descriptors:
-        raise RuntimeError("No camera found")
-
-    device = device_descriptors[0].OpenDevice(ids_peak.DeviceAccessType_Control)
-    print("Opened Device: " + device.DisplayName())
-    remote_device_nodemap = device.RemoteDevice().NodeMaps()[0]
-
-    # Disable trigger mode for continuous acquisition - live mode
-    try:
-        remote_device_nodemap.FindNode("TriggerMode").SetCurrentEntry("Off")
-    except:
-        print("Failed to disable trigger mode, continuing with default")
-
-    # Open data stream
-    datastream = device.DataStreams()[0].OpenDataStream()
-    payload_size = remote_device_nodemap.FindNode("PayloadSize").Value()
-
-    # Allocate and announce buffers
-    for i in range(datastream.NumBuffersAnnouncedMinRequired()):
-        buffer = datastream.AllocAndAnnounceBuffer(payload_size)
-        datastream.QueueBuffer(buffer)
-
-    # Start acquisition
-    datastream.StartAcquisition()
-    remote_device_nodemap.FindNode("AcquisitionStart").Execute()
-
-    # Set Exposure
-    remote_device_nodemap.FindNode("ExposureTime").SetValue(exposure) # in microseconds
-
-    return device, remote_device_nodemap, datastream
-
-
-def ids_get_frame(datastream):
-    '''Retrieve live frame'''
-
-    buffer = datastream.WaitForFinishedBuffer(1000)  # 1s timeout
-    if buffer is None:
-        print("Failed to acquire buffer")
-        #break
-        return True
-
-    # Convert buffer to image                                                                                                          
-    raw_image = ids_ipl_extension.BufferToImage(buffer)
-
-    # Convert to BGR
-    colour_image = raw_image.ConvertTo(ids_ipl.PixelFormatName_BGR8)
-
-    # Get (3D for colour) numpy array (for use with OpenCV)
-    frame = colour_image.get_numpy_3D()
-
-    # Queue buffer back to data stream
-    datastream.QueueBuffer(buffer)
-
-    # Create copy of frame for use with analysis (not linked to datastream and buffer)
-    frame = frame.copy()
-
-    return frame
-
-def ids_close(device, remote_device_nodemap, datastream):
-    if remote_device_nodemap:
-        try:
-            remote_device_nodemap.FindNode("AcquisitionStop").Execute()
-            print("Stopped Acquisition.")
-        except:
-            pass
-    if datastream:
-        try:
-            datastream.StopAcquisition()
-            print("Stopped datastream.")
-        except:
-            pass
-    ids_peak.Library.Close()
-    cv2.destroyAllWindows()
-
 def distance_converted(pixel_distance, pixels_per_unit_distance=10):
     # for pixels_per_unit_distance pixels per mm 
     converted_distance = pixel_distance/ pixels_per_unit_distance
@@ -121,26 +26,14 @@ def distance_converted(pixel_distance, pixels_per_unit_distance=10):
     return np.round(converted_distance, decimals=1)
 
 
-def motion_shift(prev_frame, curr_frame, frame_height):
-    feature_tracker = cv2.ORB_create(nfeatures=30)
-    matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-
-    crop_amount = 0.5
-
-    top_crop = int((crop_amount/2)*frame_height)
-    bottom_crop = int((1-(crop_amount/2))*frame_height)
-
-    prev_frame_crop = prev_frame[top_crop:bottom_crop,:]
-    curr_frame_crop = curr_frame[top_crop:bottom_crop,:]
-
-    #frame_crop = cv2.equalizeHist(frame_crop)
-
-    prev_kp, prev_des = feature_tracker.detectAndCompute(prev_frame_crop, None)
-    #print(f"des_live dtype: {des_live.dtype}, shape: {des_live.shape}")
-    curr_kp, curr_des = feature_tracker.detectAndCompute(curr_frame_crop, None)
+def motion_shift(matcher, prev_kp, prev_des, curr_kp, curr_des):
 
     matches = matcher.knnMatch(curr_des, prev_des, k=2)
-    good_matches = [m for m, n in matches if m.distance < 0.65 * n.distance]
+
+    matches = matcher.knnMatch(curr_des, prev_des, k=2)
+    good_matches = [m for m, n in matches if m.distance < 0.6 * n.distance]
+
+    num_matches = len(good_matches)
     #print(len(good_matches))
 
     ver_shifts = []
@@ -190,7 +83,7 @@ def motion_shift(prev_frame, curr_frame, frame_height):
 
     
 
-    return distance_delta, motion_angle
+    return distance_delta, motion_angle, num_matches
 
 def draw_motion_angle(motion_angle, frame):
     #print(motion_angle)
@@ -208,6 +101,8 @@ def draw_motion_angle(motion_angle, frame):
 
 
 def live_tracking():
+    video_source = 0 #use default capture device (webcam)
+
     #Setup ORB and matcher
     feature_tracker = cv2.ORB_create(nfeatures=30)
     #feature_tracker = cv2.AKAZE_create()
@@ -215,15 +110,18 @@ def live_tracking():
     #matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True) # for bfmatch
     matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False) # for bf.knnMatch
 
-    #Initialise camera
-    device, remote_device_nodemap, datastream = ids_init()
 
-    # get first n frames while camera adjusts
-    for i in range(10):
-        frame = ids_get_frame(datastream)
+    #Initialise video source
+    cap = cv2.VideoCapture(video_source)
 
-    frame_height = frame.shape[0]
-    frame_width = frame.shape[1]
+    if not cap.isOpened():
+        print("Error: Could not open webcam.")
+        exit()
+
+    frame_width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    ret, frame = cap.read()
 
     prev_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
@@ -231,11 +129,16 @@ def live_tracking():
 
     motion_angles = deque(maxlen=3)
 
-    while True:
-        frame = ids_get_frame(datastream)
+    kp_prev, des_prev = feature_tracker.detectAndCompute(prev_frame, None)
+
+
+    while cap.isOpened():
+        ret, frame = cap.read()
         curr_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-        delta, motion_angle = motion_shift(prev_frame, curr_frame, frame_height)
+        kp_curr, des_curr = feature_tracker.detectAndCompute(curr_frame, None)
+
+        delta, motion_angle, num_matches = motion_shift(matcher, kp_prev, des_prev, kp_curr, des_curr)
 
         distance += delta
 
@@ -245,7 +148,8 @@ def live_tracking():
 
         converted_distance = distance_converted(distance)
 
-        prev_frame = curr_frame
+        kp_prev = kp_curr
+        des_prev = des_curr
 
         # central line for reference
         cv2.line(frame, (0, frame_height//2), (frame_width, frame_height//2), color=(0,255,0), thickness=1)
@@ -255,6 +159,8 @@ def live_tracking():
         frame = draw_motion_angle(motion_angle, frame)
         #Rotation
         cv2.putText(frame, f"Distance: {converted_distance}mm", (frame_width - 350, (frame_height//2)-10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2, cv2.LINE_AA)
+        #num matches
+        cv2.putText(frame, f"Matches: {num_matches}", (frame_width - 350, (frame_height//2)-50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2, cv2.LINE_AA)
         #show frame
         cv2.imshow("Analysis", frame)
 
@@ -262,7 +168,7 @@ def live_tracking():
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
-    ids_close(device, remote_device_nodemap, datastream)
+    cv2.destroyAllWindows()
 
     return
 
