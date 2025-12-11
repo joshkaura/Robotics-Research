@@ -14,13 +14,12 @@ from statsmodels.nonparametric.smoothers_lowess import lowess
 from scipy.ndimage import gaussian_filter1d
 
 filepaths = [
-    "/Users/joshkaura/Desktop/OSL/RR Narrow Gap/Data/2025-01-31[11_37_44].csv",
-    "/Users/joshkaura/Desktop/OSL/RR Narrow Gap/Data/2025-01-29[16_07_01].csv",
-    "/Users/joshkaura/Desktop/OSL/RR Narrow Gap/Data/2025-01-30[15_00_22].csv",
-    "/Users/joshkaura/Desktop/OSL/RR Narrow Gap/Data/2025-02-05[14_13_17].csv",
-    "/Users/joshkaura/Desktop/OSL/RR Narrow Gap/Data/2025-04-02[14_30_14].csv",
-    "/Users/joshkaura/Desktop/OSL/Data/V Groove/2021-02-10[07_57_42].csv",
+    "Sample_Data/lds_scan1.csv"
 ]
+
+def save(fig, filepath="Results/data_preprocessing.png", dpi=300):
+    fig.savefig(filepath, dpi=dpi, bbox_inches="tight")
+    print(f"Saved final plot to: {filepath}")
 
 def load_data(filepath, flip=True):
     data = pd.read_csv(filepath)
@@ -39,7 +38,7 @@ def remove_outliers_zscore(profile, threshold=2.2):
 def remove_outliers_zscore_mad(profile, threshold=2.5):
     median = np.nanmedian(profile)
     mad = np.nanmedian(np.abs(profile - median))
-    print(f"MAD: {mad}")
+    #print(f"MAD: {mad}")
 
     if mad == 0:
         raise ValueError("MAD = zero, so z-scores cannot be calculated.")
@@ -231,6 +230,7 @@ def plot_comparison(raw_df, cleaned_df1, cleaned_df2, row_index=0):
 
     plt.suptitle(f'Raw vs Cleaned Profiles (Row {row_index})')
     plt.tight_layout()
+    save(fig)
     plt.waitforbuttonpress()
     plt.close()
 
@@ -238,13 +238,13 @@ def plot_comparison(raw_df, cleaned_df1, cleaned_df2, row_index=0):
 
 if __name__ == "__main__":
 
-    raw_data = load_data(filepaths[5])
+    raw_data = load_data(filepaths[0])
 
     cleaned_data1 = clean_data1(raw_data)
 
     cleaned_data2 = clean_data2(raw_data)
 
-    for i in range(20):
+    for i in range(1):
         plot_comparison(raw_data, cleaned_data1, cleaned_data2, row_index=i)
 
 
