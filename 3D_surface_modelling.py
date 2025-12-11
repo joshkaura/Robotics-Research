@@ -18,6 +18,10 @@ def load_data(filepath, flip=True):
         data = -data
     return data
 
+def save_plot(fig, filepath="Results/3D_surface_modelling.png", dpi=300):
+    fig.savefig(filepath, dpi=dpi, bbox_inches="tight")
+    print(f"Saved final plot to: {filepath}")
+
 def prepare_data(data):
     X = np.arange(data.shape[1])
     Y = np.arange(data.shape[0])
@@ -34,7 +38,11 @@ def plot_data_3D(X, Y, Z):
     
     fig.colorbar(surf, shrink=0.5, aspect=5)
 
+    ax.set_title("3D Model of Surface Scan with Laser")
     #plt.pause(0.5)
+
+    save_plot(fig)
+
     plt.show()
 
     plt.close()
