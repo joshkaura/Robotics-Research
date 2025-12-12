@@ -188,7 +188,7 @@ def evaluate_model(device, test_dataset):
 
     return all_targets, all_preds, avg_abs_error, mse
 
-def plot_prediction(index, X_test, all_targets, all_preds, scaler):
+def plot_prediction(index, X_test, all_targets, all_preds, scaler, mse, mae):
 
     profile = np.array(scaler.inverse_transform(X_test[index].reshape(1, -1))[0])
     #print(profile[0])
@@ -213,6 +213,12 @@ def plot_prediction(index, X_test, all_targets, all_preds, scaler):
     plt.title("CNN Prediction vs Ground Truth")
 
     if index == 0:
+        fig.text(
+            0.5, 0.02,
+            f"MSE (indices): {mse:.3f} | MAE (indices): {mae:.3f}",
+            ha="center",
+            fontsize=10
+        )
         save_plot(fig)
 
     plt.waitforbuttonpress()
@@ -231,7 +237,7 @@ def main(train=False, clean=False):
     all_targets, all_preds, mae, mse = evaluate_model(device, test_dataset)
 
     for i in range(1):
-        plot_prediction(i, X_test, all_targets, all_preds, scaler)
+        plot_prediction(i, X_test, all_targets, all_preds, scaler, mse, mae)
         plt.close()
 
 if __name__ == '__main__':
