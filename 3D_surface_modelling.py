@@ -20,7 +20,7 @@ def load_data(filepath, flip=True):
 
 def save_plot(fig, filepath="Results/3D_surface_modelling.png", dpi=300):
     fig.savefig(filepath, dpi=dpi, bbox_inches="tight")
-    print(f"Saved final plot to: {filepath}")
+    print(f"Saved plot to: {filepath}")
 
 def prepare_data(data):
     X = np.arange(data.shape[1])
