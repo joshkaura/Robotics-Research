@@ -11,6 +11,8 @@ import time
 from scipy.signal import savgol_filter
 from scipy.stats import zscore
 
+
+
 # ---- Dataset Loader ----
 class LaserProfileDataset(Dataset):
     def __init__(self, profiles, labels):
@@ -60,7 +62,7 @@ class VGrooveKeypointCNN(nn.Module):
         x = self.cnn(x)
         return self.regressor(x)
 
-def augment_data(X):
+def clean_data(X):
     clean_X = []
 
     for profile in X:
@@ -90,9 +92,9 @@ def augment_data(X):
     return np.array(clean_X)
 
 
-def load_data(augment=False):
-    profiles_filepath = "Sample_Data/laser_scan.csv"
-    labels_filepath = "Sample_Data/laser_scan_labels.csv"
+def load_data(clean=False):
+    profiles_filepath = "Sample_Data/lds_scan1.csv"
+    labels_filepath = "Sample_Data/lds_scan1_labels.csv"
 
     X = pd.read_csv(profiles_filepath).values
     y = pd.read_csv(labels_filepath).values
@@ -104,8 +106,8 @@ def load_data(augment=False):
 
     X = -X  # Flip profile
 
-    if augment:
-        X = augment_data(X)
+    if clean:
+        X = clean_data(X)
 
     scaler = StandardScaler()
     X = scaler.fit_transform(X)
@@ -184,7 +186,7 @@ def evaluate_model(device, test_dataset):
     median_abs_error = np.median(abs_errors)
     print(f"Average absolute index error per keypoint - {avg_abs_error:.2f} ; median - {median_abs_error:.2f}")
 
-    return all_targets, all_preds
+    return all_targets, all_preds, avg_abs_error, mse
 
 def plot_prediction(index, X_test, all_targets, all_preds, scaler):
 
@@ -195,6 +197,8 @@ def plot_prediction(index, X_test, all_targets, all_preds, scaler):
 
     true_left, true_bottom, true_right = all_targets[index]
     pred_left, pred_bottom, pred_right = all_preds[index]
+
+    fig = plt.figure()
 
     plt.scatter(x_indices, profile, label='Profile', s=2)
 
@@ -207,20 +211,28 @@ def plot_prediction(index, X_test, all_targets, all_preds, scaler):
 
     plt.legend()
     plt.title("CNN Prediction vs Ground Truth")
-    plt.waitforbuttonpress()
-    plt.close()
 
-def main(train=False, augment=False):
+    if index == 0:
+        save_plot(fig)
+
+    plt.waitforbuttonpress()
+
+def save_plot(fig, filepath="Results/CNN_feature_extraction.png", dpi=300):
+    fig.savefig(filepath, dpi=dpi, bbox_inches="tight")
+    print(f"Saved plot to: {filepath}")
+
+def main(train=False, clean=False):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    train_dataset, test_dataset, X_test, scaler = load_data(augment=augment)
+    train_dataset, test_dataset, X_test, scaler = load_data(clean=clean)
 
     if train:
         train_model(device, train_dataset, n_epochs=100)
 
-    all_targets, all_preds = evaluate_model(device, test_dataset)
+    all_targets, all_preds, mae, mse = evaluate_model(device, test_dataset)
 
-    for i in range(len(X_test)):
+    for i in range(1):
         plot_prediction(i, X_test, all_targets, all_preds, scaler)
+        plt.close()
 
 if __name__ == '__main__':
-    main(train=False, augment=True)
+    main(train=False, clean=True)
