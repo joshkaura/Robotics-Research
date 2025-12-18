@@ -1,3 +1,8 @@
+'''
+Program that builds a 3D model from a preliminary scan of a joint with a laser distance sensor
+and plots the approximate/recommended weld path along that 3D joint model.
+'''
+
 from dataclasses import dataclass
 import numpy as np
 import pandas as pd 
@@ -7,13 +12,6 @@ from sklearn.linear_model import RANSACRegressor, LinearRegression
 from scipy.signal import savgol_filter
 import matplotlib.pyplot as plt
 
-
-
-
-'''
-Program that builds a 3D model from a preliminary scan of a joint with a laser distance sensor
-and plots the approximate/recommended weld path along that 3D joint model.
-'''
 @dataclass
 class PathPlanningParams:
     smoothing_factor: float = 0.3
@@ -25,6 +23,10 @@ def load_data_csv(filepath, flip=True):
     if flip:
         data = -data
     return data
+
+def save_plot(fig, filepath="Results/data_preprocessing.png", dpi=300):
+    fig.savefig(filepath, dpi=dpi, bbox_inches="tight")
+    print(f"Saved final plot to: {filepath}")
 
 def generate_v_groove(length=1000, reflection = False):
 
@@ -312,5 +314,8 @@ if __name__ == "__main__":
     nominal_index = df.shape[1] // 2 # tcp behind the centre of the laser line
     pipeline = WeldPathPipeline(PathPlanningParams(smoothing_factor=0.3))
     fig_surface, fig_offsets = pipeline.run(df, nominal_index, synthetic=synthetic)
+
+    save_plot(fig_surface, filepath="Results/weld_path_3D.png")
+    save_plot(fig_offsets, filepath="Results/weld_path_2D.png")
     plt.show()
     plt.close()
