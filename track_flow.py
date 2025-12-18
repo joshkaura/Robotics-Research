@@ -100,8 +100,11 @@ def draw_motion_angle(motion_angle, frame):
     return frame
 
 
-def live_tracking():
-    video_source = 0 #use default capture device (webcam)
+def tracking(live = True):
+    if live:
+        video_source = 0 #use default capture device (webcam)
+    else:
+        video_source = "Sample_Data/"
 
     #Setup ORB and matcher
     feature_tracker = cv2.ORB_create(nfeatures=30)
@@ -174,4 +177,4 @@ def live_tracking():
 
 
 if __name__ == '__main__':
-    live_tracking()
+    tracking(live = True)
