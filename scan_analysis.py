@@ -361,16 +361,14 @@ if __name__ == '__main__':
     cleaned_data = clean_v_groove(data)
     #print(data.shape)
 
-    '''
-    for i in range(len(cleaned_data)-10):
+    for i in range(1):
         y = data.iloc[i].values
         clean_y = cleaned_data.iloc[i].values
         left, bottom, right = extract_features(clean_y)
         result = calculate_groove_lines(clean_y, left, right)
-        #plot_groove_lines(result)
+        plot_groove_lines(result)
         bottom, y_bottom = result["intersection_ransac"] 
-    '''
 
     #save_features(cleaned_data.copy())
-    plot_data(data, cleaned_data.copy())
+    #plot_data(data, cleaned_data.copy())
     plt.close()
