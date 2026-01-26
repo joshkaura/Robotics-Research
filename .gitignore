@@ -15,3 +15,9 @@ __pycache__/
 # PyTorch / YOLO
 runs/
 wandb/
+
+#models
+Sample_Models/
+
+#data
+Sample_Data/
