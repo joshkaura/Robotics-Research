@@ -84,11 +84,11 @@ This started in 2025 as separate prototypes written while working with a laser l
 
 What the current code doesn't do yet, measured:
 
-- **Calibration orientation.** Euler angles are added rather than composed (`laser_robot_calibration.py:44`). That's exact at the orientation it was fitted at, and all 4 sample poses share one, so the data can't reveal it. It costs 0.30 mm at tool orientation (0, 0, 0) and 31.6 mm at (180, 0, 0).
-- **Default path in `scan_analysis.py`.** It runs the edge finder on the unsmoothed profile and finds the plate tops (0 and 1910) instead of the groove edges (764 and 1622). The working path, used for the figures here, smooths first.
-- **No ground truth.** Profiles are in raw sensor units, so feature accuracy isn't measured in mm. RANSAC isn't seeded, so the root moves between runs (median spread 4 indices, worst 33).
-- **CNN.** Its labels are the RANSAC output and its test scans sit between near-identical training scans, so it can't show more than imitation. It doesn't beat copying the nearest scan's label.
-- **Seam tracking and camera flow.** The tracking simulation never closes the loop, so its torch path is a random walk. `track_flow.py` can't tell left from right (`arctan` instead of `arctan2`).
+- Calibration orientation: Euler angles are added rather than composed (`laser_robot_calibration.py:44`). That's exact at the orientation it was fitted at, and all 4 sample poses share one, so the data can't reveal it. It costs 0.30 mm at tool orientation (0, 0, 0) and 31.6 mm at (180, 0, 0).
+- Default path in `scan_analysis.py`: It runs the edge finder on the unsmoothed profile and finds the plate tops (0 and 1910) instead of the groove edges (764 and 1622). The working path, used for the figures here, smooths first.
+- No ground truth: Profiles are in raw sensor units, so feature accuracy isn't measured in mm. RANSAC isn't seeded, so the root moves between runs (median spread 4 indices, worst 33).
+- CNN: Its labels are the RANSAC output and its test scans sit between near-identical training scans, so it can't show more than imitation. It doesn't beat copying the nearest scan's label.
+- Seam tracking and camera flow: The tracking simulation never closes the loop, so its torch path is a random walk. `track_flow.py` can't tell left from right (`arctan` instead of `arctan2`).
 
 Next, in order:
 1. one package with a headless pipeline and tests;
