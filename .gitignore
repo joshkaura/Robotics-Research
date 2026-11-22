@@ -11,13 +11,14 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.venv/
 
 # PyTorch / YOLO
 runs/
 wandb/
 
-#models
-Sample_Models/
-
-#data
-Sample_Data/
+# Large or downloaded files
+data/
+release-assets/
+*.mp4
+*.mov
