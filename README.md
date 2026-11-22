@@ -82,16 +82,19 @@ This started in 2025 as separate prototypes written while working with a laser l
 
 ## Limitations and next steps
 
-- `scan_analysis.py` finds the wrong edges by default. Its `__main__` runs the edge finder on the unsmoothed profile, which on scan 0 gives edges at 0 and 1910: the "walls" become the plate tops and the RANSAC root lands at plate height, about 140 units above the bottom of the groove. The working path (smooth first, via `extract_lines`) gives 764 and 1622 but is only reached through `plot_data` and `save_features`, which are commented out at lines 372–373. The figures here use the working path.
-- RANSAC isn't seeded in the scripts, so the root moves between runs. Across 5 seeds the root's spread is 4 indices at the median scan and 33 at worst, and 71 of 200 scans spread by more than 5.
-- Profiles stay in raw sensor units and there's no ground truth, so feature accuracy isn't measured in mm.
-- The calibration adds Euler angles instead of composing rotations (`laser_robot_calibration.py:44`, `sensor_robot_transform.py:35`). That's exact at the orientation it was fitted at, and all 4 poses share one orientation, so the data can't reveal it. For a laser point 30 mm out, the error is 0.30 mm at tool orientation (0, 0, 0), 1.65 mm at (10, −20, 45) and 31.6 mm at (180, 0, 0).
-- The CNN learns to imitate the RANSAC pipeline, because its labels are that pipeline's output (from an older version of it). The 180/20 split is random over consecutive scans of one weld, so each test scan has a near-identical neighbour in training; there's no validation set; and the "best" checkpoint is the final one, because `model.state_dict()` returns references to the live weights. It doesn't beat copying the nearest scan's label.
-- The seam-tracking loop doesn't close. Each simulated scan is generated around the sensor centre whatever the torch did, so the torch position in `Results/WeldSeamTracking.png` is a random walk, not tracking.
-- `track_flow.py` uses `arctan` instead of `arctan2`, so shifts of +20 px and −20 px give the same direction, and a featureless frame gives no ORB keypoints and reports no motion. It doesn't estimate speed.
-- `Results/narrow_gap_analysis.png` came from narrow-gap analysis code and data that aren't in this repo, so it can't be reproduced here. The weld-toe angles, surface angles and capping-pass locations listed in earlier versions of this README aren't in the repo either.
+What the current code doesn't do yet, measured:
 
-Next, in order: a single package with one headless pipeline and tests; calibration with proper rotation composition, `scipy.optimize.least_squares`, poses at several orientations and a synthetic test that recovers a known sensor frame; synthetic profiles with modelled reflections and known keypoints, so feature error can be measured; then either a CNN evaluated on a held-out block of scans against these baselines, or no CNN.
+- **Calibration orientation.** Euler angles are added rather than composed (`laser_robot_calibration.py:44`). That's exact at the orientation it was fitted at, and all 4 sample poses share one, so the data can't reveal it. It costs 0.30 mm at tool orientation (0, 0, 0) and 31.6 mm at (180, 0, 0).
+- **Default path in `scan_analysis.py`.** It runs the edge finder on the unsmoothed profile and finds the plate tops (0 and 1910) instead of the groove edges (764 and 1622). The working path, used for the figures here, smooths first.
+- **No ground truth.** Profiles are in raw sensor units, so feature accuracy isn't measured in mm. RANSAC isn't seeded, so the root moves between runs (median spread 4 indices, worst 33).
+- **CNN.** Its labels are the RANSAC output and its test scans sit between near-identical training scans, so it can't show more than imitation. It doesn't beat copying the nearest scan's label.
+- **Seam tracking and camera flow.** The tracking simulation never closes the loop, so its torch path is a random walk. `track_flow.py` can't tell left from right (`arctan` instead of `arctan2`).
+
+Next, in order:
+1. one package with a headless pipeline and tests;
+2. calibration with composed rotations, `scipy.optimize.least_squares` and poses at several orientations, checked by recovering a known sensor frame from synthetic data;
+3. synthetic profiles with modelled reflections and known keypoints, so feature error can be measured;
+4. a learned model trained on synthetic profiles and tested on a held-out block of real scans against these baselines.
 
 ## Credits
 
