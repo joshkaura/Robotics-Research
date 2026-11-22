@@ -1,0 +1,20 @@
+[project]
+name = "robotics-research"
+version = "0.1.0"
+description = "Laser line-scan analysis, sensor-to-robot calibration and weld path prototypes for robotic welding"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "matplotlib",
+    "numpy",
+    "opencv-python",
+    "pandas",
+    "scikit-image",
+    "scikit-learn",
+    "scipy",
+    "statsmodels",
+    "torch",
+]
+
+[tool.uv]
+package = false
